@@ -19,13 +19,15 @@ print("Servidor pronto para receber conexões.")
 
 # Função para enviar uma confirmação (ACK) ao cliente
 def enviar_ack(numero_quadro):
-    ack = {'ack': True, 'numero': numero_quadro}
-    cliente_socket.send(pickle.dumps(ack))
+    if quadro_numero_esperado <= numero_quadro < quadro_numero_esperado + max_quadros:
+        ack = {'ack': True, 'numero': numero_quadro}
+        cliente_socket.send(pickle.dumps(ack))
 
 # Função para enviar uma negação (NAK) ao cliente
 def enviar_nak(numero_quadro):
-    nak = {'ack': False, 'numero': numero_quadro}
-    cliente_socket.send(pickle.dumps(nak))
+    if quadro_numero_esperado <= numero_quadro < quadro_numero_esperado + max_quadros:
+        nak = {'ack': False, 'numero': numero_quadro}
+        cliente_socket.send(pickle.dumps(nak))
 
 # Função para receber um quadro do cliente
 def receber_quadro():
@@ -48,13 +50,19 @@ mensagens = ["Olá, cliente!", "Esta é uma mensagem de teste.", "Aqui está out
 cliente_socket, endereco_cliente = servidor_socket.accept()
 print("Conexão estabelecida com:", endereco_cliente)
 
-# Recebe e processa os quadros enviados pelo cliente
+# Variáveis de controle Go-Back-N ARQ
 quadro_numero_esperado = 0
+max_quadros = 3
+
+# Recebe e processa os quadros enviados pelo cliente
 while True:
     quadro = receber_quadro()
-    if quadro['numero'] == quadro_numero_esperado:
-        processar_quadro(quadro)
-        quadro_numero_esperado += 1
+    if quadro_numero_esperado <= quadro['numero'] < quadro_numero_esperado + max_quadros:
+        if quadro['numero'] == quadro_numero_esperado:
+            processar_quadro(quadro)
+            quadro_numero_esperado += 1
+        else:
+            enviar_ack(quadro_numero_esperado - 1)
     else:
         enviar_ack(quadro_numero_esperado - 1)
 

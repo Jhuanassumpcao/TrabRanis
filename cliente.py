@@ -25,13 +25,15 @@ mensagens = ["Olá, servidor!", "Esta é uma mensagem de teste.", "Aqui está ou
 # Número máximo de quadros a serem enviados sem aguardar ACKs
 max_quadros = 3
 
-# Variáveis de controle
-quadro_numero = 0
-base_quadro = 0
+# Variáveis de controle Go-Back-N ARQ
+janela_base = 0
+janela_superior = max_quadros
+ack_confirmados = set()
 
 # Envia os quadros para o servidor
+quadro_numero = 0
 while quadro_numero < len(mensagens):
-    if quadro_numero < base_quadro + max_quadros:
+    if quadro_numero < janela_superior:
         mensagem = mensagens[quadro_numero]
 
         # Cria o quadro com as informações
@@ -53,20 +55,32 @@ while quadro_numero < len(mensagens):
             ack = pickle.loads(cliente_socket.recv(1024))
             if ack['ack']:
                 print("Recebido ACK para quadro", ack['numero'])
-                base_quadro = ack['numero'] + 1
+                if ack['numero'] not in ack_confirmados:
+                    ack_confirmados.add(ack['numero'])
+                    if ack['numero'] == janela_base:
+                        janela_base += 1
+                        janela_superior += 1
         except socket.timeout:
-            print("Timeout. Reenviando quadros", base_quadro, "a", quadro_numero - 1)
+            print("Timeout. Reenviando quadros", janela_base, "a", quadro_numero - 1)
+            janela_superior = janela_base + max_quadros
+            quadro_numero = janela_base
 
 # Aguarda ACKs finais
-while base_quadro < quadro_numero:
+while janela_base < len(mensagens):
     try:
         cliente_socket.settimeout(1.0)
         ack = pickle.loads(cliente_socket.recv(1024))
         if ack['ack']:
             print("Recebido ACK para quadro", ack['numero'])
-            base_quadro = ack['numero'] + 1
+            if ack['numero'] not in ack_confirmados:
+                ack_confirmados.add(ack['numero'])
+                if ack['numero'] == janela_base:
+                    janela_base += 1
+                    janela_superior += 1
     except socket.timeout:
-        print("Timeout. Reenviando quadros", base_quadro, "a", quadro_numero - 1)
+        print("Timeout. Reenviando quadros", janela_base, "a", quadro_numero - 1)
+        janela_superior = janela_base + max_quadros
+        quadro_numero = janela_base
 
 # Fecha a conexão
 cliente_socket.close()
