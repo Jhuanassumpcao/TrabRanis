@@ -20,36 +20,53 @@ def enviar_quadro(quadro):
     cliente_socket.send(pickle.dumps(quadro))
 
 # Dados a serem enviados ao servidor
-mensagem = "Olá, servidor!"
+mensagens = ["Olá, servidor!", "Esta é uma mensagem de teste.", "Aqui está outra mensagem."]
 
-# Tamanho da janela de envio
-janela_envio_tamanho = 3
+# Número máximo de quadros a serem enviados sem aguardar ACKs
+max_quadros = 3
 
-# Variáveis para controle da janela de envio
-janela_envio_base = 0
-janela_envio_limite = janela_envio_tamanho - 1
-janela_envio = []
+# Variáveis de controle
+quadro_numero = 0
+base_quadro = 0
 
-# Cria os quadros e adiciona na janela de envio
-for i in range(len(mensagem)):
-    quadro = {
-        'tamanho': len(mensagem),
-        'origem': cliente_socket.getsockname(),
-        'destino': endereco_servidor,
-        'dados': mensagem[i]
-    }
-    janela_envio.append(quadro)
+# Envia os quadros para o servidor
+while quadro_numero < len(mensagens):
+    if quadro_numero < base_quadro + max_quadros:
+        mensagem = mensagens[quadro_numero]
 
-# Envia os quadros na janela de envio
-while janela_envio_base <= len(mensagem):
-    for i in range(janela_envio_base, min(janela_envio_base + janela_envio_tamanho, len(mensagem))):
-        enviar_quadro(janela_envio[i])
-    janela_envio_base += janela_envio_tamanho
+        # Cria o quadro com as informações
+        quadro = {
+            'numero': quadro_numero,
+            'tamanho': len(mensagem),
+            'origem': cliente_socket.getsockname(),
+            'destino': endereco_servidor,
+            'dados': mensagem
+        }
 
-# Aguarda a resposta do servidor
-response = cliente_socket.recv(1024)
-print("Dados recebidos do servidor:", response)
+        enviar_quadro(quadro)
+        print("Enviado quadro", quadro_numero)
+        quadro_numero += 1
+    else:
+        # Aguarda ACKs
+        try:
+            cliente_socket.settimeout(1.0)
+            ack = pickle.loads(cliente_socket.recv(1024))
+            if ack['ack']:
+                print("Recebido ACK para quadro", ack['numero'])
+                base_quadro = ack['numero'] + 1
+        except socket.timeout:
+            print("Timeout. Reenviando quadros", base_quadro, "a", quadro_numero - 1)
+
+# Aguarda ACKs finais
+while base_quadro < quadro_numero:
+    try:
+        cliente_socket.settimeout(1.0)
+        ack = pickle.loads(cliente_socket.recv(1024))
+        if ack['ack']:
+            print("Recebido ACK para quadro", ack['numero'])
+            base_quadro = ack['numero'] + 1
+    except socket.timeout:
+        print("Timeout. Reenviando quadros", base_quadro, "a", quadro_numero - 1)
 
 # Fecha a conexão
 cliente_socket.close()
- 
