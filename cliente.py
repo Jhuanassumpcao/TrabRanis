@@ -33,8 +33,9 @@ def reenviar_quadros():
         enviar_quadro(quadro)
         print("Reenviado quadro", quadro_numero)
 
-# Dados a serem enviados ao servidor
-mensagens = ["Olá, servidor!", "Esta é uma mensagem de teste.", "Aqui está outra mensagem."]
+# Lê as mensagens de um arquivo de texto
+with open('mensagens.txt', 'r') as arquivo:
+    mensagens = arquivo.read().splitlines()
 
 # Número máximo de quadros a serem enviados sem aguardar ACKs
 max_quadros = 1

@@ -45,8 +45,9 @@ def processar_quadro(quadro):
         print("Quadro inválido recebido. CRC não coincide.")
         enviar_nak(quadro['numero'])
 
-# Lista de mensagens a serem recebidas
-mensagens = ["Olá, cliente!", "Esta é uma mensagem de teste.", "Aqui está outra mensagem."]
+# Lê as mensagens de um arquivo de texto
+with open('mensagens.txt', 'r') as arquivo:
+    mensagens = arquivo.read().splitlines()
 
 # Aceita conexões de clientes
 cliente_socket, endereco_cliente = servidor_socket.accept()
