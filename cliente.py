@@ -1,6 +1,7 @@
 import socket
 import pickle
 import crcmod.predefined
+import random
 
 # Função para calcular o CRC de um quadro
 def calcular_crc(quadro):
@@ -23,7 +24,7 @@ def enviar_quadro(quadro):
 mensagens = ["Olá, servidor!", "Esta é uma mensagem de teste.", "Aqui está outra mensagem."]
 
 # Número máximo de quadros a serem enviados sem aguardar ACKs
-max_quadros = 3
+max_quadros = 1
 
 # Variáveis de controle Go-Back-N ARQ
 janela_base = 0
@@ -49,26 +50,11 @@ while quadro_numero < len(mensagens):
         print("Enviado quadro", quadro_numero)
         quadro_numero += 1
     else:
-        # Aguarda ACKs
-        try:
-            cliente_socket.settimeout(1.0)
-            ack = pickle.loads(cliente_socket.recv(1024))
-            if ack['ack']:
-                print("Recebido ACK para quadro", ack['numero'])
-                if ack['numero'] not in ack_confirmados:
-                    ack_confirmados.add(ack['numero'])
-                    if ack['numero'] == janela_base:
-                        janela_base += 1
-                        janela_superior += 1
-        except socket.timeout:
-            print("Timeout. Reenviando quadros", janela_base, "a", quadro_numero - 1)
-            janela_superior = janela_base + max_quadros
-            quadro_numero = janela_base
+        # Simula perda de ACK no cliente
+        if random.random() < 0.2:  # 20% de chance de perder o ACK
+            continue  # Ignora o ACK e não aguarda resposta
 
-# Aguarda ACKs finais
-while janela_base < len(mensagens):
-    try:
-        cliente_socket.settimeout(1.0)
+        # Aguarda ACKs
         ack = pickle.loads(cliente_socket.recv(1024))
         if ack['ack']:
             print("Recebido ACK para quadro", ack['numero'])
@@ -77,10 +63,21 @@ while janela_base < len(mensagens):
                 if ack['numero'] == janela_base:
                     janela_base += 1
                     janela_superior += 1
-    except socket.timeout:
-        print("Timeout. Reenviando quadros", janela_base, "a", quadro_numero - 1)
-        janela_superior = janela_base + max_quadros
-        quadro_numero = janela_base
+
+# Aguarda ACKs finais
+while janela_base < len(mensagens):
+    # Simula perda de ACK no cliente
+    if random.random() < 0.9:  # 20% de chance de perder o ACK
+        continue  # Ignora o ACK e não aguarda resposta
+
+    ack = pickle.loads(cliente_socket.recv(1024))
+    if ack['ack']:
+        print("Recebido ACK para quadro", ack['numero'])
+        if ack['numero'] not in ack_confirmados:
+            ack_confirmados.add(ack['numero'])
+            if ack['numero'] == janela_base:
+                janela_base += 1
+                janela_superior += 1
 
 # Fecha a conexão
 cliente_socket.close()

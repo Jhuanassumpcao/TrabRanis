@@ -1,6 +1,8 @@
 import socket
 import pickle
 import crcmod.predefined
+import time
+import random
 
 # Função para calcular o CRC de um quadro
 def calcular_crc(quadro):
@@ -69,6 +71,8 @@ while True:
     # Verifica se todos os quadros foram recebidos
     if quadro_numero_esperado == len(mensagens):
         break
+
+   
 
 # Envia ACK final
 enviar_ack(quadro_numero_esperado)
