@@ -15,10 +15,23 @@ cliente_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 endereco_servidor = ('127.0.0.1', 2080)
 cliente_socket.connect(endereco_servidor)
 
-# Função para enviar um quadro para o servidor
 def enviar_quadro(quadro):
     quadro['crc'] = calcular_crc(quadro)
     cliente_socket.send(pickle.dumps(quadro))
+
+# Função para reenviar os quadros dentro da janela
+def reenviar_quadros():
+    for quadro_numero in range(janela_base, janela_superior):
+        mensagem = mensagens[quadro_numero]
+        quadro = {
+            'numero': quadro_numero,
+            'tamanho': len(mensagem),
+            'origem': cliente_socket.getsockname(),
+            'destino': endereco_servidor,
+            'dados': mensagem
+        }
+        enviar_quadro(quadro)
+        print("Reenviado quadro", quadro_numero)
 
 # Dados a serem enviados ao servidor
 mensagens = ["Olá, servidor!", "Esta é uma mensagem de teste.", "Aqui está outra mensagem."]
@@ -51,7 +64,8 @@ while quadro_numero < len(mensagens):
         quadro_numero += 1
     else:
         # Simula perda de ACK no cliente
-        if random.random() < 0.2:  # 20% de chance de perder o ACK
+        if random.random() < 0.8:  # 20% de chance de perder o ACK
+            reenviar_quadros()
             continue  # Ignora o ACK e não aguarda resposta
 
         # Aguarda ACKs
@@ -66,10 +80,7 @@ while quadro_numero < len(mensagens):
 
 # Aguarda ACKs finais
 while janela_base < len(mensagens):
-    # Simula perda de ACK no cliente
-    if random.random() < 0.9:  # 20% de chance de perder o ACK
-        continue  # Ignora o ACK e não aguarda resposta
-
+    
     ack = pickle.loads(cliente_socket.recv(1024))
     if ack['ack']:
         print("Recebido ACK para quadro", ack['numero'])

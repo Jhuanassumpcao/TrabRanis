@@ -54,7 +54,7 @@ print("Conexão estabelecida com:", endereco_cliente)
 
 # Variáveis de controle Go-Back-N ARQ
 quadro_numero_esperado = 0
-max_quadros = 3
+max_quadros = 1
 
 # Recebe e processa os quadros enviados pelo cliente
 while True:
@@ -65,6 +65,7 @@ while True:
             quadro_numero_esperado += 1
         else:
             enviar_ack(quadro_numero_esperado - 1)
+            enviar_nak(quadro['numero'])  # Envia um NAK para solicitar o reenvio do quadro
     else:
         enviar_ack(quadro_numero_esperado - 1)
 
