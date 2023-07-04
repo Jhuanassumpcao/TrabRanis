@@ -1,14 +1,23 @@
 import socket
 import pickle
-import crcmod.predefined
-import time
-import random
 
 # Função para calcular o CRC de um quadro
 def calcular_crc(quadro):
-    crc16 = crcmod.predefined.mkCrcFun('crc-16')
-    dados_serializados = pickle.dumps(quadro['dados'])
-    return crc16(dados_serializados)
+    crc16 = 0xFFFF  # Valor inicial do CRC com todos os bits em 1
+    poly = 0x8005  # Polinômio gerador usado no algoritmo CRC-16 CCITT
+
+    dados_serializados = pickle.dumps(quadro['dados'])  # Serializa os dados do quadro
+    dados = bytearray(dados_serializados)  # Converte os dados serializados em um array de bytes
+
+    for byte in dados:
+        crc16 ^= (byte << 8)  # XOR do byte com os 8 bits mais significativos do CRC
+        for _ in range(8):
+            if crc16 & 0x8000:  # Verifica se o bit mais significativo do CRC é 1
+                crc16 = (crc16 << 1) ^ poly  # Desloca o CRC para a esquerda e aplica o polinômio gerador
+            else:
+                crc16 <<= 1  # Desloca o CRC para a esquerda
+
+    return crc16 & 0xFFFF  # Retorna o valor do CRC de 16 bits
 
 # Cria um objeto socket
 servidor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

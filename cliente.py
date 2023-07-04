@@ -1,13 +1,24 @@
 import socket
 import pickle
-import crcmod.predefined
 import random
 
 # Função para calcular o CRC de um quadro
 def calcular_crc(quadro):
-    crc16 = crcmod.predefined.mkCrcFun('crc-16')
+    crc16 = 0xFFFF
+    poly = 0x8005
+
     dados_serializados = pickle.dumps(quadro['dados'])
-    return crc16(dados_serializados)
+    dados = bytearray(dados_serializados)
+
+    for byte in dados:
+        crc16 ^= (byte << 8)
+        for _ in range(8):
+            if crc16 & 0x8000:
+                crc16 = (crc16 << 1) ^ poly
+            else:
+                crc16 <<= 1
+
+    return crc16 & 0xFFFF
 
 # Cria um objeto socket
 cliente_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
