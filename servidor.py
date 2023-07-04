@@ -1,3 +1,4 @@
+import random
 import socket
 import pickle
 
@@ -47,6 +48,13 @@ def receber_quadro():
 
 # Função para processar o quadro recebido
 def processar_quadro(quadro):
+    # Introduz um erro de transmissão modificando um bit aleatoriamente nos dados
+    #if random.random() < 0.1:  # 10% de probabilidade de quadro inválido
+    #    erro_posicao = random.randint(0, len(quadro['dados']) - 1)
+    #    quadro['dados'] = quadro['dados'][:erro_posicao] + 'X' + quadro['dados'][erro_posicao+1:]
+     
+
+
     if calcular_crc(quadro) == quadro['crc']:
         print("Quadro válido recebido:", quadro)
         enviar_ack(quadro['numero'])

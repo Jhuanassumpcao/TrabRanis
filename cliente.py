@@ -76,7 +76,7 @@ while quadro_numero < len(mensagens):
         quadro_numero += 1
     else:
         # Simula perda de ACK no cliente
-        if random.random() < 0.8:  # 20% de chance de perder o ACK
+        if random.random() < 0.3:  # 30% de chance de perder o ACK
             reenviar_quadros()
             continue  # Ignora o ACK e não aguarda resposta
 
