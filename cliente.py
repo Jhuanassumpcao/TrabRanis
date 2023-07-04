@@ -1,14 +1,9 @@
 import socket
 import pickle
-import random
 
-# Função para calcular o CRC de um quadro
-def calcular_crc(quadro):
+def calcular_crc(dados):
     crc16 = 0xFFFF
     poly = 0x8005
-
-    dados_serializados = pickle.dumps(quadro['dados'])
-    dados = bytearray(dados_serializados)
 
     for byte in dados:
         crc16 ^= (byte << 8)
@@ -20,87 +15,61 @@ def calcular_crc(quadro):
 
     return crc16 & 0xFFFF
 
-# Cria um objeto socket
 cliente_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_address = ('localhost', 12345)
 
-endereco_servidor = ('127.0.0.1', 2080)
-cliente_socket.connect(endereco_servidor)
+try:
+    cliente_socket.connect(server_address)
+    print('Conexão estabelecida com o servidor.')
 
-def enviar_quadro(quadro):
-    quadro['crc'] = calcular_crc(quadro)
-    cliente_socket.send(pickle.dumps(quadro))
+    # Lê as mensagens de um arquivo de texto
+    with open('mensagens.txt', 'r') as arquivo:
+        frames = arquivo.read().splitlines()
 
-# Função para reenviar os quadros dentro da janela
-def reenviar_quadros():
-    for quadro_numero in range(janela_base, janela_superior):
-        mensagem = mensagens[quadro_numero]
-        quadro = {
-            'numero': quadro_numero,
-            'tamanho': len(mensagem),
-            'origem': cliente_socket.getsockname(),
-            'destino': endereco_servidor,
-            'dados': mensagem
-        }
-        enviar_quadro(quadro)
-        print("Reenviado quadro", quadro_numero)
+    window_size = 3
+    base = 0
+    next_seq_num = 0
 
-# Lê as mensagens de um arquivo de texto
-with open('mensagens.txt', 'r') as arquivo:
-    mensagens = arquivo.read().splitlines()
+    while base < len(frames):
+        # Envia os quadros dentro da janela de transmissão
+        for i in range(base, min(base + window_size, len(frames))):
+            frame = {
+                'numero': i,
+                'dados': frames[i]
+            }
+            frame['crc'] = calcular_crc(frame['dados'].encode())
 
-# Número máximo de quadros a serem enviados sem aguardar ACKs
-max_quadros = 1
+            try:
+                cliente_socket.send(pickle.dumps(frame))
+                print('Enviado quadro:', i)
+            except socket.error as e:
+                print('Erro ao enviar quadro:', i)
+                print('Detalhes do erro:', str(e))
 
-# Variáveis de controle Go-Back-N ARQ
-janela_base = 0
-janela_superior = max_quadros
-ack_confirmados = set()
+        try:
+            cliente_socket.settimeout(1.0)  # Define um tempo limite para a recepção do ACK
+            while True:
+                try:
+                    ack = pickle.loads(cliente_socket.recv(1024))
+                    print('Recebido ACK:', ack)
+                    if ack >= base:
+                        base = ack + 1
+                        break
+                except socket.timeout:
+                    print('Timeout: Reenviando quadros...')
+                    next_seq_num = base
+                except pickle.UnpicklingError:
+                    print('Erro ao decodificar o ACK recebido.')
+        except socket.timeout:
+            print('Timeout: Nenhum ACK recebido.')
+        except socket.error as e:
+            print('Erro na comunicação com o servidor.')
+            print('Detalhes do erro:', str(e))
+            break
 
-# Envia os quadros para o servidor
-quadro_numero = 0
-while quadro_numero < len(mensagens):
-    if quadro_numero < janela_superior:
-        mensagem = mensagens[quadro_numero]
+    cliente_socket.close()
+    print('Conexão encerrada com o servidor.')
 
-        # Cria o quadro com as informações
-        quadro = {
-            'numero': quadro_numero,
-            'tamanho': len(mensagem),
-            'origem': cliente_socket.getsockname(),
-            'destino': endereco_servidor,
-            'dados': mensagem
-        }
-
-        enviar_quadro(quadro)
-        print("Enviado quadro", quadro_numero)
-        quadro_numero += 1
-    else:
-        # Simula perda de ACK no cliente
-        if random.random() < 0.3:  # 30% de chance de perder o ACK
-            reenviar_quadros()
-            continue  # Ignora o ACK e não aguarda resposta
-
-        # Aguarda ACKs
-        ack = pickle.loads(cliente_socket.recv(1024))
-        if ack['ack']:
-            print("Recebido ACK para quadro", ack['numero'])
-            if ack['numero'] not in ack_confirmados:
-                ack_confirmados.add(ack['numero'])
-                if ack['numero'] == janela_base:
-                    janela_base += 1
-                    janela_superior += 1
-
-# Aguarda ACKs finais
-while janela_base < len(mensagens):
-    
-    ack = pickle.loads(cliente_socket.recv(1024))
-    if ack['ack']:
-        print("Recebido ACK para quadro", ack['numero'])
-        if ack['numero'] not in ack_confirmados:
-            ack_confirmados.add(ack['numero'])
-            if ack['numero'] == janela_base:
-                janela_base += 1
-                janela_superior += 1
-
-# Fecha a conexão
-cliente_socket.close()
+except socket.error as e:
+    print('Erro ao conectar ao servidor.')
+    print('Detalhes do erro:', str(e))
