@@ -26,38 +26,41 @@ try:
     with open('mensagens.txt', 'r') as arquivo:
         frames = arquivo.read().splitlines()
 
-    window_size = 3
+    window_size = 4
     base = 0
     next_seq_num = 0
+    received_acks = set()
 
     while base < len(frames):
         # Envia os quadros dentro da janela de transmissão
         for i in range(base, min(base + window_size, len(frames))):
-            frame = {
-                'numero': i,
-                'dados': frames[i]
-            }
-            frame['crc'] = calcular_crc(frame['dados'].encode())
+            if i not in received_acks:
+                frame = {
+                    'numero': i,
+                    'dados': frames[i]
+                }
+                frame['crc'] = calcular_crc(frame['dados'].encode())
 
-            try:
-                cliente_socket.send(pickle.dumps(frame))
-                print('Enviado quadro:', i)
-            except socket.error as e:
-                print('Erro ao enviar quadro:', i)
-                print('Detalhes do erro:', str(e))
+                try:
+                    cliente_socket.send(pickle.dumps(frame))
+                    print('Enviado quadro:', i)
+                except socket.error as e:
+                    print('Erro ao enviar quadro:', i)
+                    print('Detalhes do erro:', str(e))
 
         try:
-            cliente_socket.settimeout(1.0)  # Define um tempo limite para a recepção do ACK
+            cliente_socket.settimeout(10)  # Define um tempo limite para a recepção do ACK
             while True:
                 try:
                     ack = pickle.loads(cliente_socket.recv(1024))
                     print('Recebido ACK:', ack)
                     if ack >= base:
+                        received_acks.add(ack)
                         base = ack + 1
                         break
                 except socket.timeout:
                     print('Timeout: Reenviando quadros...')
-                    next_seq_num = base
+                    break
                 except pickle.UnpicklingError:
                     print('Erro ao decodificar o ACK recebido.')
         except socket.timeout:
